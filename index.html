@@ -1348,7 +1348,7 @@ function pintarJoyero(){
 }
 
 /* ═══════════════ MISIONES (lado niña) ═══════════════ */
-let MisionesCache = [], HechasCache = [];
+let MisionesCache = [], HechasCache = [], misionesSig = null;
 async function refrescarMisiones(silencio){
   const r = await sbSelect(T_MISIONES, "select=*&estado=eq.pendiente&order=created_at.desc&limit=20");
   if(r.ok && Array.isArray(r.data)){
@@ -1360,7 +1360,10 @@ async function refrescarMisiones(silencio){
     hada("No encuentro el castillo de papá… ¿hay internet? 📡");
   }
   pintarBadge();
-  if(pantallaActual==="s-misiones") pintarMisiones();
+  // solo repintar si los datos han cambiado: si no, un toque a mitad de repintado se perdería
+  const sig = JSON.stringify([MisionesCache.map(m=>m.id), HechasCache.map(h=>h.id)]);
+  if(pantallaActual==="s-misiones" && sig!==misionesSig) pintarMisiones();
+  misionesSig = sig;
 }
 function pintarBadge(){
   const b = $("badge-misiones");
