@@ -722,12 +722,15 @@ function ri(a,b){ return a + Math.floor(Math.random()*(b-a+1)); }
 function llevaSuma(a,b){ return a%10 + b%10 >= 10; }
 function llevaResta(a,b){ return a%10 < b%10; }
 function conProb(p){ return Math.random() < p; }
+// Convención ABN: el número mayor siempre a la izquierda (se empieza por el mayor)
+function mayorPrimero(a,b){ return a>=b ? [a,b] : [b,a]; }
 
 function genAbn(nivel){
   if(nivel===1){
     if(conProb(.5)){ // suma
       const quiero = conProb(.35); let a,b;
       do{ a=ri(12,58); b=ri(11,39); }while(a+b>89 || llevaSuma(a,b)!==quiero);
+      [a,b] = mayorPrimero(a,b);
       return {t:"abn", d:{op:"suma", a, b}};
     }
     const quiero = conProb(.3); let a,b;
@@ -737,6 +740,7 @@ function genAbn(nivel){
   if(nivel===2){
     if(conProb(.5)){
       let a,b; do{ a=ri(24,88); b=ri(24,88); }while(a+b>160 || !llevaSuma(a,b));
+      [a,b] = mayorPrimero(a,b);
       return {t:"abn", d:{op:"suma", a, b}};
     }
     let a,b; do{ a=ri(41,99); b=ri(17,a-11); }while(a-b<10 || !llevaResta(a,b));
@@ -745,14 +749,17 @@ function genAbn(nivel){
   const r = Math.random();
   if(r<.30){ // doble suma
     let a,b,c; do{ a=ri(15,60); b=ri(15,60); c=ri(12,50); }while(a+b+c>165);
-    return {t:"abn", d:{op:"doble", a, b, c}};
+    const s = [a,b,c].sort((x,y)=>y-x);
+    return {t:"abn", d:{op:"doble", a:s[0], b:s[1], c:s[2]}};
   }
   if(r<.60){ // sumirresta
     let a,b,c; do{ a=ri(25,70); b=ri(15,60); c=ri(12,75); }while(c>=a+b-8);
+    [a,b] = mayorPrimero(a,b);
     return {t:"abn", d:{op:"sumirresta", a, b, c}};
   }
   if(r<.80){
     let a,b; do{ a=ri(125,459); b=ri(115,459); }while(a+b>899 || !llevaSuma(a,b));
+    [a,b] = mayorPrimero(a,b);
     return {t:"abn", d:{op:"suma", a, b}};
   }
   let a,b; do{ a=ri(210,899); b=ri(105,a-105); }while(!llevaResta(a,b));
@@ -768,10 +775,12 @@ function genCla(nivel){
   const r = Math.random();
   if(r<.4){ // tres sumandos de 2 cifras
     let a,b,c; do{ a=ri(15,75); b=ri(15,75); c=ri(11,60); }while(a+b+c>199);
-    return {t:"cla", d:{op:"suma3", a, b, c}};
+    const s = [a,b,c].sort((x,y)=>y-x);
+    return {t:"cla", d:{op:"suma3", a:s[0], b:s[1], c:s[2]}};
   }
   if(r<.7){
     let a,b; do{ a=ri(125,459); b=ri(115,459); }while(a+b>899 || !llevaSuma(a,b));
+    [a,b] = mayorPrimero(a,b);
     return {t:"cla", d:{op:"suma", a, b}};
   }
   let a,b; do{ a=ri(210,899); b=ri(105,a-105); }while(!llevaResta(a,b));
@@ -810,7 +819,7 @@ function genDif(nivel){
   else if(nivel===2){ b=ri(10,54); dif=ri(5,45); }
   else { b=ri(40,170); dif=ri(8,90); }
   const a = b + dif;
-  return {t:"dif", d: conProb(.5) ? {a, b} : {a:b, b:a}};
+  return {t:"dif", d:{a, b}}; // el mayor siempre primero
 }
 
 /* ── relojes ── */
