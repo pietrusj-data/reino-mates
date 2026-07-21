@@ -218,6 +218,26 @@ textarea{resize:vertical; min-height:64px;}
 .pin-punto{width:22px; height:22px; border-radius:50%; border:3px solid var(--lila); background:#fff;}
 .pin-punto.lleno{background:var(--lila);}
 
+/* reloj */
+.reloj-wrap{display:flex; flex-direction:column; align-items:center; gap:10px;}
+.stepper{display:flex; align-items:center; gap:8px; background:var(--blanco); border-radius:18px;
+  padding:6px 10px; box-shadow:0 4px 12px rgba(167,139,250,.2);}
+.stepper button{width:54px; height:54px; border:none; border-radius:14px; font-size:1.7rem; font-weight:800;
+  font-family:inherit; background:var(--lila-suave); color:var(--lila-osc); cursor:pointer;}
+.stepper button:active{transform:translateY(3px);}
+.stepper .st-txt{min-width:86px; text-align:center; font-size:1.15rem; font-weight:800; line-height:1.15;}
+.hora-digital{display:flex; align-items:center; gap:6px; font-size:2rem; font-weight:800;}
+/* pesas */
+.pesa{display:inline-flex; align-items:center; justify-content:center; border-radius:50%;
+  font-weight:800; color:#7a5200; border:3px solid var(--oro-osc);
+  background:radial-gradient(circle at 35% 30%, #ffe9ae, var(--oro)); box-shadow:0 4px 10px rgba(0,0,0,.18);}
+.pesa-1{width:76px; height:76px; font-size:1.05rem;}
+.pesa-m{width:62px; height:62px; font-size:.92rem;}
+.pesa-q{width:50px; height:50px; font-size:.82rem;}
+.pila-pesas{display:flex; flex-wrap:wrap; gap:10px; justify-content:center; align-items:center; max-width:520px;}
+.frac-btn{border:3px solid var(--rosa); background:#fff; color:var(--rosa-osc); border-radius:16px;
+  padding:10px 16px; font-family:inherit; font-weight:800; font-size:1.15rem; cursor:pointer;}
+.frac-btn.on{background:var(--rosa); color:#fff;}
 #fx{position:fixed; inset:0; pointer-events:none; z-index:80;}
 .oculto{display:none !important;}
 .centrado{text-align:center;}
@@ -299,6 +319,10 @@ textarea{resize:vertical; min-height:64px;}
   <div class="fila">
     <button class="btn btn-menta" style="flex:1; min-width:150px;" data-tipo="igu">⚖️ Igualaciones</button>
     <button class="btn btn-cielo" style="flex:1; min-width:150px;" data-tipo="dif">💎 Diferencias</button>
+  </div>
+  <div class="fila">
+    <button class="btn btn-oro"  style="flex:1; min-width:150px;" data-tipo="rel">🕐 Relojes</button>
+    <button class="btn btn-rosa" style="flex:1; min-width:150px;" data-tipo="pes">🧺 Pesos</button>
   </div>
   <h2 style="font-size:1.2rem;">Elige nivel</h2>
   <div class="fila" id="libre-niveles">
@@ -411,6 +435,8 @@ textarea{resize:vertical; min-height:64px;}
         <button class="chip-sel" data-t="cla">🏰 Cuentas clásicas</button>
         <button class="chip-sel on" data-t="igu">⚖️ Igualaciones</button>
         <button class="chip-sel on" data-t="dif">💎 Diferencias</button>
+        <button class="chip-sel" data-t="rel">🕐 Relojes</button>
+        <button class="chip-sel" data-t="pes">🧺 Pesos</button>
       </div>
     </div>
     <div class="form-linea">
@@ -787,7 +813,71 @@ function genDif(nivel){
   return {t:"dif", d: conProb(.5) ? {a, b} : {a:b, b:a}};
 }
 
-const GEN = {abn:genAbn, cla:genCla, igu:genIgu, dif:genDif};
+/* ── relojes ── */
+const HORAS_TXT = ["doce","una","dos","tres","cuatro","cinco","seis","siete","ocho","nueve","diez","once"];
+function fmtHM(h,m){ return h+":"+String(m).padStart(2,"0"); }
+function horaEnPalabras(h12,m){
+  const art = x=>(x===1?"la":"las"), nom = x=>HORAS_TXT[x%12];
+  const sig = h12%12+1;
+  if(m===0)  return `${art(h12)} ${nom(h12)} en punto`;
+  if(m===15) return `${art(h12)} ${nom(h12)} y cuarto`;
+  if(m===30) return `${art(h12)} ${nom(h12)} y media`;
+  if(m===45) return `${art(sig)} ${nom(sig)} menos cuarto`;
+  if(m<30)   return `${art(h12)} ${nom(h12)} y ${m}`;
+  return `${art(sig)} ${nom(sig)} menos ${60-m}`;
+}
+function genRel(nivel){
+  const r = Math.random();
+  const m5 = nivel===1 ? [0,30][ri(0,1)] : nivel===2 ? [0,15,30,45][ri(0,3)] : ri(0,11)*5;
+  if(r < .35){ // poner las agujas
+    const modo24 = nivel===3 && conProb(.5);
+    return {t:"rel", d:{sub:"agujas", h: modo24 ? ri(0,23) : ri(1,12), m:m5, modo24}};
+  }
+  if(r < .6){ // leer el reloj
+    return {t:"rel", d:{sub:"leer", h:ri(1,12), m:m5}};
+  }
+  // sumar (o restar en nivel 3) minutos
+  let h = ri(7,21), m, add, resta = false;
+  if(nivel===1){ m = [0,15,30,45][ri(0,3)]; add = [10,15,30][ri(0,2)]; if(m+add>=60) m = 15; }
+  else if(nivel===2){ m = ri(0,59); add = [5,10,15,20,25,30,40,45][ri(0,7)]; }
+  else { m = ri(0,59); add = ri(11,49); resta = conProb(.3); }
+  return {t:"rel", d:{sub:"suma", h, m, add, resta}};
+}
+function relObjetivo(d){
+  if(d.sub!=="suma") return fmtHM(d.h, d.m);
+  let t = d.h*60 + d.m + (d.resta ? -d.add : d.add);
+  t = ((t % 1440) + 1440) % 1440;
+  return fmtHM(Math.floor(t/60), t%60);
+}
+/* ── pesos (en cuartos de kilo) ── */
+function pesoEnTexto(q){
+  const kg = Math.floor(q/4), r = q%4;
+  if(kg===0) return ["","un cuarto de kilo","medio kilo","tres cuartos de kilo"][r];
+  const base = kg + (kg===1 ? " kilo" : " kilos");
+  return base + ["", " y cuarto", " y medio", " y tres cuartos"][r];
+}
+function genPes(nivel){
+  let q;
+  if(nivel===1){ q = ri(1,3)*4 + [0,0,2,2,1,3][ri(0,5)]; }
+  else if(nivel===2){ q = ri(5,24); }
+  else { q = ri(8,40); }
+  if(conProb(.6)) return {t:"pes", d:{sub:"pon", q}};
+  // camino contrario: te enseño las pesas y me dices el total
+  let n1, nm, nq, resto = q;
+  const maxQ = nivel===3 ? 6 : 3;
+  nq = Math.min(resto, conProb(.5) ? ri(0,maxQ) : q%4 + (conProb(.3)?4:0));
+  resto -= nq;
+  nm = Math.min(Math.floor(resto/2), ri(0, nivel===1?2:3));
+  resto -= nm*2;
+  if(resto%2===1){ nq++; resto--; } // cuadrar
+  n1 = Math.floor(resto/4); resto -= n1*4;
+  nm += resto/2;
+  if(n1+nm+nq<2) return genPes(nivel);
+  return {t:"pes", d:{sub:"lee", n1, nm, nq}};
+}
+function pesTotal(d){ return d.sub==="pon" ? d.q : d.n1*4 + d.nm*2 + d.nq; }
+
+const GEN = {abn:genAbn, cla:genCla, igu:genIgu, dif:genDif, rel:genRel, pes:genPes};
 function genTanda(tipos, nivel, n){
   const lista = [], vistos = new Set();
   const orden = [];
@@ -809,6 +899,15 @@ function tituloEj(ej){
     return d.op==="suma" ? `${d.a} + ${d.b}` : `${d.a} − ${d.b}`;
   }
   if(ej.t==="igu") return fraseIgu(d);
+  if(ej.t==="rel"){
+    if(d.sub==="agujas") return d.modo24 ? `Pon el reloj a las ${fmtHM(d.h,d.m)}` : `Pon el reloj a ${horaEnPalabras(d.h,d.m)}`;
+    if(d.sub==="leer") return "¿Qué hora marca el reloj?";
+    return `Son las ${fmtHM(d.h,d.m)}. ¿Qué hora ${d.resta?"era hace":"será dentro de"} ${d.add} minutos?`;
+  }
+  if(ej.t==="pes"){
+    if(d.sub==="pon") return `Hay que pesar ${pesoEnTexto(d.q)}. ¿Qué pesas pones?`;
+    return `Pesas: ${d.n1}×1kg + ${d.nm}×½kg + ${d.nq}×¼kg. ¿Cuánto es?`;
+  }
   return `Diferencia entre ${d.a} y ${d.b}`;
 }
 function resultadoEj(ej){
@@ -819,6 +918,12 @@ function resultadoEj(ej){
     return d.op==="suma" ? d.a+d.b : d.a-d.b;
   }
   if(ej.t==="igu") return d.max-d.min;
+  if(ej.t==="rel") return d.sub==="leer" ? fmtHM(d.h,d.m) : relObjetivo(d);
+  if(ej.t==="pes"){
+    if(d.sub==="lee") return pesoEnTexto(pesTotal(d));
+    const kg = Math.floor(d.q/4), r = d.q%4;
+    return `${kg}×1kg` + (r>=2 ? " + 1×½kg" : "") + (r%2 ? " + 1×¼kg" : "");
+  }
   return Math.abs(d.a-d.b);
 }
 
@@ -839,7 +944,8 @@ function renderEj(){
   const z = $("zona-ejercicio"); z.innerHTML = "";
   Pad.celda = null; Pad.onOK = null;
   EjState = {fallosEj:0, fallosRow:0, ayudado:false, t0:Date.now()};
-  ({abn:renderAbn, cla:renderCla, igu:renderIgu, dif:renderDif})[ej.t](ej.d);
+  $("pad").classList.remove("oculto");
+  ({abn:renderAbn, cla:renderCla, igu:renderIgu, dif:renderDif, rel:renderRel, pes:renderPes})[ej.t](ej.d);
 }
 function fallo(pista){
   EjState.fallosEj++; EjState.fallosRow++; Tanda.fallosTotales++;
@@ -858,6 +964,8 @@ function ejCompletado(){
     if(ej.t==="cla") S.stats.claOk++;
     if(ej.t==="igu") S.stats.iguOk++;
     if(ej.t==="dif") S.stats.difOk++;
+    if(ej.t==="rel") S.stats.relOk = (S.stats.relOk||0)+1;
+    if(ej.t==="pes") S.stats.pesOk = (S.stats.pesOk||0)+1;
   }
   guardar(); actualizarGemas();
   Tanda.res.push({t:ej.t, d:ej.d, intentos:EjState.fallosEj, ayudado:EjState.ayudado,
@@ -1251,8 +1359,281 @@ function renderDif(d){
   };
 }
 
+/* ═══════════════ RENDER: RELOJES ═══════════════ */
+function svgReloj(h12, m){
+  const C = 130, ha = ((h12%12)*30 + m*.5) * Math.PI/180, ma = m*6*Math.PI/180;
+  const px = (a,r)=> (C + r*Math.sin(a)).toFixed(1), py = (a,r)=> (C - r*Math.cos(a)).toFixed(1);
+  let marcas = "", nums = "";
+  for(let i=0;i<12;i++){
+    const a = i*30*Math.PI/180;
+    marcas += `<line x1="${px(a,110)}" y1="${py(a,110)}" x2="${px(a,118)}" y2="${py(a,118)}" stroke="#8a7ba8" stroke-width="4" stroke-linecap="round"/>`;
+    const n = i===0 ? 12 : i;
+    nums += `<text x="${px(a,96)}" y="${+py(a,96)+8}" text-anchor="middle" font-size="24" font-weight="800" fill="#4b3b67" font-family="inherit">${n}</text>`;
+  }
+  return `<svg viewBox="0 0 260 260" style="width:min(64vw,260px); height:auto;">
+    <circle cx="130" cy="130" r="122" fill="#fff" stroke="#a78bfa" stroke-width="9"/>
+    ${marcas}${nums}
+    <line x1="130" y1="130" x2="${px(ha,56)}" y2="${py(ha,56)}" stroke="#4b3b67" stroke-width="12" stroke-linecap="round"/>
+    <line x1="130" y1="130" x2="${px(ma,86)}" y2="${py(ma,86)}" stroke="#ff7bac" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="130" cy="130" r="10" fill="#ffc94d" stroke="#e8a93e" stroke-width="3"/>
+  </svg>`;
+}
+function stepperEl(inicial, texto, paso, min, max, onCambio){
+  const el = document.createElement("div"); el.className = "stepper";
+  let v = inicial;
+  const menos = document.createElement("button"); menos.textContent = "−";
+  const mas = document.createElement("button"); mas.textContent = "+";
+  const txt = document.createElement("div"); txt.className = "st-txt";
+  const pinta = ()=> txt.innerHTML = texto(v);
+  menos.addEventListener("pointerdown", e=>{ e.preventDefault(); sfx.click(); v = v-paso < min ? max : v-paso; pinta(); onCambio(v); });
+  mas.addEventListener("pointerdown",  e=>{ e.preventDefault(); sfx.click(); v = v+paso > max ? min : v+paso; pinta(); onCambio(v); });
+  el.appendChild(menos); el.appendChild(txt); el.appendChild(mas);
+  pinta();
+  return {el, get:()=>v, set:x=>{ v=x; pinta(); }};
+}
+function celdasHoraMin(z){
+  const linea = document.createElement("div"); linea.className = "hora-digital";
+  const ch = document.createElement("div"); hacerEditable(ch, 2); ch.id = "rel-hh";
+  ch.dataset.avance = "1"; ch.dataset.sig = "rel-mm";
+  const sep = document.createElement("span"); sep.textContent = ":";
+  const cm = document.createElement("div"); hacerEditable(cm, 2); cm.id = "rel-mm";
+  linea.appendChild(ch); linea.appendChild(sep); linea.appendChild(cm);
+  z.appendChild(linea);
+  seleccionarCelda(ch);
+  return {ch, cm};
+}
+function renderRel(d){
+  const z = $("zona-ejercicio");
+  const ej = Tanda.list[Tanda.idx];
+  const wrap = document.createElement("div"); wrap.className = "reloj-wrap w100";
+  const enun = document.createElement("div");
+  enun.className = "enunciado-txt"; enun.style.fontWeight = "800";
+  enun.textContent = tituloEj(ej);
+  z.appendChild(enun);
+  z.appendChild(wrap);
+
+  if(d.sub==="agujas"){
+    $("pad").classList.add("oculto");
+    const est = {h:12, m:0};
+    const cara = document.createElement("div");
+    wrap.appendChild(cara);
+    const pinta = ()=> cara.innerHTML = svgReloj(est.h, est.m);
+    pinta();
+    const fila = document.createElement("div"); fila.className = "fila";
+    const stH = stepperEl(12, v=>`<b style="font-size:1.5rem;">${v}</b><br>hora`, 1, 1, 12, v=>{ est.h=v; pinta(); });
+    const stM = stepperEl(0, v=>`<b style="font-size:1.5rem;">:${String(v).padStart(2,"0")}</b><br>minutos`, 5, 0, 55, v=>{ est.m=v; pinta(); });
+    fila.appendChild(stH.el); fila.appendChild(stM.el);
+    wrap.appendChild(fila);
+    const ok = document.createElement("button");
+    ok.className = "btn btn-menta"; ok.style.minWidth = "220px";
+    ok.textContent = "✓ ¡Ya está!";
+    wrap.appendChild(ok);
+    const listo = ()=>{
+      const bienH = est.h%12 === d.h%12, bienM = est.m === d.m;
+      if(bienH && bienM){
+        ok.remove();
+        Pad.onOK = null;
+        ejCompletado();
+        return;
+      }
+      const errs = [];
+      if(!bienM) errs.push("La aguja LARGA y rosa marca los minutos: cada número son 5 🕐");
+      if(!bienH) errs.push("La aguja corta y morada señala la hora 👆");
+      fallo(errs[0]);
+    };
+    ok.addEventListener("pointerdown", e=>{ e.preventDefault(); listo(); });
+    window.__solucion = ()=>{
+      hada("Mira, así se pone 💛", 2800);
+      est.h = d.h%12===0 ? 12 : d.h%12; est.m = d.m;
+      stH.set(est.h); stM.set(est.m); pinta();
+      ok.remove();
+      setTimeout(ejCompletado, 1100);
+    };
+    return;
+  }
+
+  if(d.sub==="leer"){
+    const cara = document.createElement("div");
+    cara.innerHTML = svgReloj(d.h, d.m);
+    wrap.appendChild(cara);
+    const {ch, cm} = celdasHoraMin(wrap);
+    Pad.onOK = ()=>{
+      const vh = valorCelda(ch), vm = valorCelda(cm);
+      if(vh===null || vm===null){ hada("Escribe la hora y los minutos 🌷"); return; }
+      if(vh%12===d.h%12 && vm===d.m){
+        [ch,cm].forEach(c=>{ c.classList.remove("activa"); c.classList.add("hecha"); });
+        Pad.onOK = null; ejCompletado();
+      } else {
+        const mal = [];
+        if(vh%12!==d.h%12) mal.push(ch);
+        if(vm!==d.m) mal.push(cm);
+        marcarMal(mal);
+        fallo("La aguja corta dice la hora y la larga los minutos: cuenta de 5 en 5 🖐️");
+      }
+    };
+    window.__solucion = ()=>{
+      hada(`Marca ${horaEnPalabras(d.h,d.m)} 💛`, 3200);
+      ch.textContent = d.h; cm.textContent = String(d.m).padStart(2,"0");
+      [ch,cm].forEach(c=>{ c.classList.remove("activa"); c.classList.add("hecha"); });
+      Pad.onOK = null; setTimeout(ejCompletado, 1200);
+    };
+    return;
+  }
+
+  // suma / resta de minutos
+  const cara = document.createElement("div");
+  cara.innerHTML = svgReloj(d.h, d.m);
+  cara.querySelector("svg").style.width = "min(46vw,190px)";
+  wrap.appendChild(cara);
+  const obj = relObjetivo(d), H = parseInt(obj.split(":")[0],10), M = parseInt(obj.split(":")[1],10);
+  const {ch, cm} = celdasHoraMin(wrap);
+  Pad.onOK = ()=>{
+    const vh = valorCelda(ch), vm = valorCelda(cm);
+    if(vh===null || vm===null){ hada("Escribe la hora y los minutos 🌷"); return; }
+    if((vh===H || vh%12===H%12) && vm===M){
+      [ch,cm].forEach(c=>{ c.classList.remove("activa"); c.classList.add("hecha"); });
+      const ref = document.createElement("p");
+      ref.className = "enunciado-txt"; ref.style.color = "var(--menta-osc)"; ref.style.fontWeight = "800";
+      ref.textContent = `¡Eso es! ${fmtHM(d.h,d.m)} ${d.resta?"−":"+"} ${d.add} min = ${obj}`;
+      wrap.appendChild(ref);
+      Pad.onOK = null; ejCompletado();
+    } else {
+      const mal = [];
+      if(!(vh===H || vh%12===H%12)) mal.push(ch);
+      if(vm!==M) mal.push(cm);
+      marcarMal(mal);
+      fallo(d.m + (d.resta?-d.add:d.add) >= 60
+        ? `Al pasar de 60 minutos cambia la hora: cuenta desde las ${fmtHM(d.h,d.m)} de 10 en 10 🕐`
+        : `Cuenta desde ${fmtHM(d.h,d.m)} de 5 en 5 o de 10 en 10 🕐`);
+    }
+  };
+  window.__solucion = ()=>{
+    hada(`${fmtHM(d.h,d.m)} ${d.resta?"menos":"más"} ${d.add} minutos son las ${obj} 💛`, 3400);
+    ch.textContent = H; cm.textContent = String(M).padStart(2,"0");
+    [ch,cm].forEach(c=>{ c.classList.remove("activa"); c.classList.add("hecha"); });
+    Pad.onOK = null; setTimeout(ejCompletado, 1300);
+  };
+}
+
+/* ═══════════════ RENDER: PESOS ═══════════════ */
+function pesaEl(clase, texto){
+  const p = document.createElement("div");
+  p.className = "pesa "+clase;
+  p.textContent = texto;
+  return p;
+}
+function renderPes(d){
+  const z = $("zona-ejercicio");
+  const ej = Tanda.list[Tanda.idx];
+  const enun = document.createElement("div");
+  enun.className = "enunciado-txt"; enun.style.fontWeight = "800";
+  enun.textContent = d.sub==="pon"
+    ? `El dragón Chispas quiere pesar ${pesoEnTexto(d.q)} de gemas 🐉💎`
+    : "Mira las pesas de la balanza. ¿Cuánto pesa la cesta? 🧺";
+  z.appendChild(enun);
+
+  if(d.sub==="pon"){
+    $("pad").classList.add("oculto");
+    const sub = document.createElement("p"); sub.className = "sub";
+    sub.textContent = "Pon las pesas que sumen justo ese peso";
+    z.appendChild(sub);
+    const est = {n1:0, nm:0, nq:0};
+    const fila = document.createElement("div"); fila.className = "fila";
+    const mk = (clave, clase, texto)=>{
+      const col = document.createElement("div");
+      col.style.cssText = "display:flex; flex-direction:column; align-items:center; gap:6px;";
+      col.appendChild(pesaEl(clase, texto));
+      const st = stepperEl(0, v=>`<b style="font-size:1.4rem;">${v}</b>`, 1, 0, 10, v=>est[clave]=v);
+      col.appendChild(st.el);
+      fila.appendChild(col);
+      return st;
+    };
+    const st1 = mk("n1","pesa-1","1 kg"), stm = mk("nm","pesa-m","½ kg"), stq = mk("nq","pesa-q","¼ kg");
+    z.appendChild(fila);
+    const ok = document.createElement("button");
+    ok.className = "btn btn-menta"; ok.style.minWidth = "220px";
+    ok.textContent = "⚖️ ¡A pesar!";
+    z.appendChild(ok);
+    ok.addEventListener("pointerdown", e=>{
+      e.preventDefault();
+      const suma = est.n1*4 + est.nm*2 + est.nq;
+      if(suma===0){ hada("Pon alguna pesa con los botones + 🌷"); return; }
+      if(suma===d.q){
+        ok.remove(); Pad.onOK = null;
+        ejCompletado();
+      } else if(suma<d.q){
+        fallo(`Se queda corto: faltan ${pesoEnTexto(d.q-suma)} ⚖️`);
+      } else {
+        fallo(`Te has pasado: sobran ${pesoEnTexto(suma-d.q)} ⚖️`);
+      }
+    });
+    window.__solucion = ()=>{
+      hada("Mira: así se llega justo 💛", 3000);
+      const kg = Math.floor(d.q/4), r = d.q%4;
+      st1.set(kg); stm.set(r>=2?1:0); stq.set(r%2);
+      est.n1 = kg; est.nm = r>=2?1:0; est.nq = r%2;
+      ok.remove();
+      setTimeout(ejCompletado, 1200);
+    };
+    return;
+  }
+
+  // sub "lee": el camino contrario
+  const pila = document.createElement("div"); pila.className = "pila-pesas";
+  for(let i=0;i<d.n1;i++) pila.appendChild(pesaEl("pesa-1","1 kg"));
+  for(let i=0;i<d.nm;i++) pila.appendChild(pesaEl("pesa-m","½ kg"));
+  for(let i=0;i<d.nq;i++) pila.appendChild(pesaEl("pesa-q","¼ kg"));
+  z.appendChild(pila);
+
+  const total = pesTotal(d), kgBien = Math.floor(total/4), fracBien = total%4;
+  const linea = document.createElement("div");
+  linea.className = "fila"; linea.style.fontSize = "1.35rem"; linea.style.fontWeight = "800";
+  const c = document.createElement("div"); hacerEditable(c, 2);
+  linea.appendChild(c);
+  const kgTxt = document.createElement("span"); kgTxt.textContent = "kilos y…";
+  linea.appendChild(kgTxt);
+  z.appendChild(linea);
+  const fracFila = document.createElement("div"); fracFila.className = "fila";
+  let fracSel = null;
+  ["justo","y ¼","y ½","y ¾"].forEach((txt,i)=>{
+    const b = document.createElement("button");
+    b.className = "frac-btn"; b.textContent = txt;
+    b.addEventListener("pointerdown", e=>{
+      e.preventDefault(); sfx.click(); fracSel = i;
+      fracFila.querySelectorAll(".frac-btn").forEach(x=>x.classList.toggle("on", x===b));
+    });
+    fracFila.appendChild(b);
+  });
+  z.appendChild(fracFila);
+  seleccionarCelda(c);
+
+  Pad.onOK = ()=>{
+    const v = valorCelda(c);
+    if(v===null){ hada("Escribe cuántos kilos enteros (puede ser 0) 🌷"); return; }
+    if(fracSel===null){ hada("Elige: justo, ¼, ½ o ¾ 🌷"); return; }
+    if(v===kgBien && fracSel===fracBien){
+      c.classList.remove("activa"); c.classList.add("hecha");
+      const ref = document.createElement("p");
+      ref.className = "enunciado-txt"; ref.style.color = "var(--menta-osc)"; ref.style.fontWeight = "800";
+      ref.textContent = `¡Eso es! Pesa ${pesoEnTexto(total)}`;
+      z.appendChild(ref);
+      Pad.onOK = null; ejCompletado();
+    } else {
+      marcarMal([c]);
+      fallo("Junta los cuartos: 2 cuartos hacen medio kilo y 4 cuartos hacen 1 kilo 🧮");
+    }
+  };
+  window.__solucion = ()=>{
+    hada(`Son ${pesoEnTexto(total)} 💛`, 3200);
+    c.textContent = kgBien; fracSel = fracBien;
+    fracFila.querySelectorAll(".frac-btn").forEach((x,i)=>x.classList.toggle("on", i===fracBien));
+    c.classList.remove("activa"); c.classList.add("hecha");
+    Pad.onOK = null; setTimeout(ejCompletado, 1300);
+  };
+}
+
 /* ═══════════════ FIN DE TANDA Y RESUMEN ═══════════════ */
-const EMOJI_TIPO = {abn:"🔮", cla:"🏰", igu:"⚖️", dif:"💎"};
+const EMOJI_TIPO = {abn:"🔮", cla:"🏰", igu:"⚖️", dif:"💎", rel:"🕐", pes:"🧺"};
 function hoyISO(){ return new Date().toISOString().slice(0,10); }
 function finTanda(){
   const seg = Math.round((Date.now()-Tanda.t0)/1000);
@@ -1321,6 +1702,8 @@ const INSIGNIAS = [
   {k:"doble-1",        nombre:"Primera Doble Suma",     e:"🌟", desc:"Resuelve tu primera doble suma",      check:s=>s.dobleOk>=1},
   {k:"gemas-100",      nombre:"Tesoro Real",            e:"💰", desc:"Gana 100 gemas en total",             check:s=>(s.gemasTotal||0)>=100},
   {k:"globos-50",      nombre:"Reina de los Globos",    e:"🎈", desc:"Explota 50 globos",                   check:s=>s.globos>=50},
+  {k:"reloj-10",       nombre:"Señora del Tiempo",      e:"🕐", desc:"Resuelve 10 relojes",                 check:s=>(s.relOk||0)>=10},
+  {k:"pesos-10",       nombre:"Maestra de la Balanza",  e:"🧺", desc:"Resuelve 10 pesos",                   check:s=>(s.pesOk||0)>=10},
   {k:"dias-3",         nombre:"Tres Días de Mates",     e:"🌈", desc:"Juega 3 días distintos",              check:s=>s.dias.length>=3},
   {k:"nivel3-1",       nombre:"Nivel de Reina",         e:"👸", desc:"Completa una misión de nivel 3",      check:s=>s.nivel3>=1}
 ];
@@ -1661,7 +2044,7 @@ $("btn-salir-juego").addEventListener("click", ()=>{
 
 /* juego libre */
 const Libre = {tipo:"abn", nivel:1};
-const NOMBRE_TIPO = {abn:"Rejillas", cla:"Cuentas", igu:"Igualaciones", dif:"Diferencias"};
+const NOMBRE_TIPO = {abn:"Rejillas", cla:"Cuentas", igu:"Igualaciones", dif:"Diferencias", rel:"Relojes", pes:"Pesos"};
 function pintarLibre(){
   document.querySelectorAll("#s-libre [data-tipo]").forEach(b=>
     b.style.opacity = b.dataset.tipo===Libre.tipo ? "1" : ".55");
