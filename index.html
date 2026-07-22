@@ -314,11 +314,10 @@ textarea{resize:vertical; min-height:64px;}
   <h2>🎮 ¿A qué jugamos?</h2>
   <div class="fila">
     <button class="btn btn-rosa"  style="flex:1; min-width:150px;" data-tipo="abn">🔮 Rejillas</button>
-    <button class="btn btn-lila"  style="flex:1; min-width:150px;" data-tipo="cla">🏰 Cuentas</button>
+    <button class="btn btn-menta" style="flex:1; min-width:150px;" data-tipo="igu">⚖️ Igualaciones</button>
   </div>
   <div class="fila">
-    <button class="btn btn-menta" style="flex:1; min-width:150px;" data-tipo="igu">⚖️ Igualaciones</button>
-    <button class="btn btn-cielo" style="flex:1; min-width:150px;" data-tipo="dif">💎 Diferencias</button>
+    <button class="btn btn-cielo" style="flex:1; min-width:150px; max-width:320px;" data-tipo="dif">💎 Diferencias</button>
   </div>
   <div class="fila">
     <button class="btn btn-oro"  style="flex:1; min-width:150px;" data-tipo="rel">🕐 Relojes</button>
@@ -432,9 +431,8 @@ textarea{resize:vertical; min-height:64px;}
       <label>Tipos de ejercicio</label>
       <div class="chips" id="papa-tipos">
         <button class="chip-sel on" data-t="abn">🔮 Rejillas ABN</button>
-        <button class="chip-sel" data-t="cla">🏰 Cuentas clásicas</button>
-        <button class="chip-sel on" data-t="igu">⚖️ Igualaciones</button>
-        <button class="chip-sel on" data-t="dif">💎 Diferencias</button>
+        <button class="chip-sel on" data-t="igu">⚖️ Igualaciones (rejilla)</button>
+        <button class="chip-sel on" data-t="dif">💎 Diferencias (rejilla)</button>
         <button class="chip-sel" data-t="rel">🕐 Relojes</button>
         <button class="chip-sel" data-t="pes">🧺 Pesos</button>
       </div>
@@ -965,6 +963,7 @@ function marcarMal(celdas){
   celdas.forEach(c=>{ c.classList.add("mal"); setTimeout(()=>c.classList.remove("mal"), 650); });
 }
 function ejCompletado(){
+  if(!Tanda) return; // salió de la tanda a mitad
   const ej = Tanda.list[Tanda.idx];
   const g = EjState.ayudado ? 0 : (EjState.fallosEj===0 ? 3 : EjState.fallosEj===1 ? 2 : 1);
   S.gemas += g;
@@ -987,6 +986,7 @@ function ejCompletado(){
     elogio();
   }
   setTimeout(()=>{
+    if(!Tanda) return; // salió durante la celebración
     Tanda.idx++;
     if(Tanda.idx < Tanda.list.length) renderEj();
     else finTanda();
@@ -1289,83 +1289,195 @@ function renderIgu(d){
   persos.appendChild(persoCard(d.pb, d.max, d.max, "var(--lila)"));
   z.appendChild(persos);
 
-  const linea = document.createElement("div");
-  linea.className = "fila";
-  linea.style.fontSize = "1.4rem"; linea.style.fontWeight = "800";
-  const pre = document.createElement("span");
-  pre.textContent = d.pa===-1 ? "Te faltan" : "Le faltan";
-  const c = document.createElement("div"); hacerEditable(c, 3);
-  const post = document.createElement("span"); post.textContent = d.item;
-  linea.appendChild(pre); linea.appendChild(c); linea.appendChild(post);
-  z.appendChild(linea);
-  seleccionarCelda(c);
+  const ayuda = document.createElement("p");
+  ayuda.className = "sub";
+  ayuda.textContent = "Pon ➕ al pequeño o quita ➖ al grande hasta que sean iguales";
+  z.appendChild(ayuda);
 
+  const etiqueta = i => (i===-1 ? (S.nombre||"Tú") : PERSONAJES[i].n).toUpperCase().slice(0,9);
+  const est = {p:d.min, g:d.max}, movs = [];
   const bien = d.max - d.min;
-  Pad.onOK = ()=>{
-    const v = valorCelda(c);
-    if(v===null){ hada("Escribe cuántas faltan 🌷"); return; }
-    if(v!==bien){ marcarMal([c]); fallo(`Cuenta con los dedos desde ${d.min} hasta ${d.max} 🖐️`); return; }
-    c.classList.remove("activa"); c.classList.add("hecha");
-    const ref = document.createElement("p");
-    ref.className = "enunciado-txt"; ref.style.color = "var(--menta-osc)"; ref.style.fontWeight = "800";
-    ref.textContent = `¡Claro! ${d.min} + ${bien} = ${d.max}`;
-    z.appendChild(ref);
-    Pad.onOK = null;
-    ejCompletado();
-  };
-  window.__solucion = ()=>{
-    hada(`Faltan ${bien}: porque ${d.min} + ${bien} = ${d.max} 💛`, 3400);
-    c.textContent = bien; c.classList.remove("activa"); c.classList.add("hecha");
-    Pad.onOK = null;
-    setTimeout(ejCompletado, 1200);
-  };
+  const tabla = document.createElement("table"); tabla.className = "rejilla";
+  const trh = document.createElement("tr");
+  ["➕ / ➖","CUÁNTO", etiqueta(d.pa)+" 💗", etiqueta(d.pb)+" 👑"].forEach(h=>{
+    const th = document.createElement("th"); th.textContent = h; trh.appendChild(th);
+  });
+  tabla.appendChild(trh);
+  const tr0 = document.createElement("tr");
+  ["","—", d.min, d.max].forEach(v=>{ const {td} = celdaTd("fija", v); tr0.appendChild(td); });
+  tabla.appendChild(tr0);
+  z.appendChild(tabla);
+  let nFilas = 0;
+
+  function fijar(c){ Object.values(c).forEach(x=>{ x.classList.remove("activa"); x.classList.add("hecha"); }); }
+  function filaNueva(){
+    EjState.fallosRow = 0;
+    nFilas++;
+    if(nFilas===6 && !EjState.ayudado) hada("¡Puedes igualarlos de un salto! 🐸", 4000);
+    const tr = document.createElement("tr");
+    const c = {};
+    const signo = celdaTd("", "➕");
+    signo.div.style.background = "#fff8e6"; signo.div.style.borderColor = "var(--oro-osc)";
+    signo.div.dataset.modo = "+";
+    signo.div.addEventListener("pointerdown", e=>{ e.preventDefault(); sfx.click();
+      const m = signo.div.dataset.modo==="+" ? "-" : "+";
+      signo.div.dataset.modo = m; signo.div.textContent = m==="+" ? "➕" : "➖"; });
+    tr.appendChild(signo.td); c.signo = signo.div;
+    ["q","p","g"].forEach(nm=>{
+      const cc = celdaTd(); hacerEditable(cc.div, 3);
+      tr.appendChild(cc.td); c[nm] = cc.div;
+    });
+    tabla.appendChild(tr);
+    seleccionarCelda(c.q);
+    Pad.onOK = ()=>comprobar(c);
+    window.__solucion = ()=>solucionFila(c);
+  }
+  function comprobar(c){
+    const modo = c.signo.dataset.modo, q = valorCelda(c.q), p = valorCelda(c.p), g = valorCelda(c.g);
+    if(q===null||p===null||g===null){ hada("Rellena todas las casillas de la fila 🌷"); return; }
+    const hueco = est.g - est.p;
+    const errs = [];
+    if(q<1 || q>hueco){ errs.push({c:c.q, h:`Como mucho puedes mover ${hueco} para no pasarte`}); }
+    else if(modo==="+"){
+      if(p!==est.p+q) errs.push({c:c.p, h:`${est.p} y ${q} más… ¡cuenta otra vez!`});
+      if(g!==est.g)   errs.push({c:c.g, h:"El grande no cambia en esta fila"});
+    } else {
+      if(g!==est.g-q) errs.push({c:c.g, h:`${est.g} menos ${q}… ¡cuenta otra vez!`});
+      if(p!==est.p)   errs.push({c:c.p, h:"El pequeño no cambia en esta fila"});
+    }
+    if(errs.length){ marcarMal(errs.map(e=>e.c)); fallo(errs[0].h); return; }
+    if(modo==="+") est.p += q; else est.g -= q;
+    movs.push(q);
+    fijar(c); sfx.click();
+    if(est.p===est.g) faseFinal(); else filaNueva();
+  }
+  function faseFinal(){
+    EjState.fallosRow = 0;
+    const linea = document.createElement("div");
+    linea.className = "fila";
+    linea.style.fontSize = "1.35rem"; linea.style.fontWeight = "800";
+    const pre = document.createElement("span");
+    pre.textContent = `⚖️ ¡Iguales! ¿Cuántas ${d.item} ${d.pa===-1?"te":"le"} faltaban?`;
+    const cF = document.createElement("div"); hacerEditable(cF, 3);
+    linea.appendChild(pre); linea.appendChild(cF);
+    z.appendChild(linea);
+    seleccionarCelda(cF);
+    Pad.onOK = ()=>{
+      const v = valorCelda(cF);
+      if(v===null){ hada("Suma todo lo que has movido 🌷"); return; }
+      if(v!==bien){ marcarMal([cF]); fallo(`Suma lo que has ido moviendo: ${movs.join(", ")} 🖐️`); return; }
+      cF.classList.remove("activa"); cF.classList.add("hecha");
+      const ref = document.createElement("p");
+      ref.className = "enunciado-txt"; ref.style.color = "var(--menta-osc)"; ref.style.fontWeight = "800";
+      ref.textContent = `¡Eso es! ${movs.join(" + ")} = ${bien}`;
+      z.appendChild(ref);
+      Pad.onOK = null;
+      ejCompletado();
+    };
+    window.__solucion = ()=>{
+      hada(`Moviste ${movs.join(" y ")}: en total ${bien} 💛`, 3400);
+      cF.textContent = bien; cF.classList.remove("activa"); cF.classList.add("hecha");
+      Pad.onOK = null;
+      setTimeout(ejCompletado, 1200);
+    };
+  }
+  function solucionFila(c){
+    hada("Mira, te enseño esta fila 💛", 2600);
+    const q = est.g - est.p;
+    c.signo.dataset.modo = "+"; c.signo.textContent = "➕";
+    c.q.textContent = q; c.p.textContent = est.p+q; c.g.textContent = est.g;
+    est.p += q; movs.push(q);
+    fijar(c);
+    setTimeout(faseFinal, 900);
+  }
+  filaNueva();
 }
 
 /* ═══════════════ RENDER: DIFERENCIAS ═══════════════ */
 function renderDif(d){
   const z = $("zona-ejercicio");
-  const mayor = Math.max(d.a,d.b), menor = Math.min(d.a,d.b), bien = mayor-menor;
+  const mayor = Math.max(d.a,d.b), menor = Math.min(d.a,d.b);
   const txt = document.createElement("div");
   txt.className = "enunciado-txt";
   txt.textContent = `¿Cuál es la diferencia entre ${d.a} y ${d.b}?`;
   z.appendChild(txt);
 
   const torres = document.createElement("div"); torres.className = "torres";
-  [[d.a,"var(--rosa)"],[d.b,"var(--lila)"]].forEach(([n,col])=>{
+  torres.style.height = "140px";
+  [[mayor,"var(--rosa)"],[menor,"var(--lila)"]].forEach(([n,col])=>{
     const t = document.createElement("div"); t.className = "torre";
-    t.style.height = Math.round(30 + 140*n/mayor)+"px";
+    t.style.height = Math.round(24 + 96*n/mayor)+"px";
     t.style.background = col;
     t.textContent = n;
     torres.appendChild(t);
   });
   z.appendChild(torres);
 
-  const linea = document.createElement("div");
-  linea.className = "fila"; linea.style.fontSize = "1.4rem"; linea.style.fontWeight = "800";
-  const pre = document.createElement("span"); pre.textContent = "La diferencia es";
-  const c = document.createElement("div"); hacerEditable(c, 3);
-  linea.appendChild(pre); linea.appendChild(c);
-  z.appendChild(linea);
-  seleccionarCelda(c);
+  const ayuda = document.createElement("p");
+  ayuda.className = "sub";
+  ayuda.textContent = "Quítales lo mismo a los dos: cuando el pequeño llegue a 0, lo que quede en el grande es la diferencia";
+  z.appendChild(ayuda);
 
-  Pad.onOK = ()=>{
-    const v = valorCelda(c);
-    if(v===null){ hada("Escribe la diferencia 🌷"); return; }
-    if(v!==bien){ marcarMal([c]); fallo(`Es lo mismo que quitarle ${menor} a ${mayor} ✂️`); return; }
-    c.classList.remove("activa"); c.classList.add("hecha");
+  const est = {g:mayor, p:menor};
+  const tabla = document.createElement("table"); tabla.className = "rejilla";
+  const trh = document.createElement("tr");
+  ["QUITO A LOS DOS ✂️","EL GRANDE","EL PEQUEÑO"].forEach(h=>{
+    const th = document.createElement("th"); th.textContent = h; trh.appendChild(th);
+  });
+  tabla.appendChild(trh);
+  const tr0 = document.createElement("tr");
+  ["—", mayor, menor].forEach(v=>{ const {td} = celdaTd("fija", v); tr0.appendChild(td); });
+  tabla.appendChild(tr0);
+  z.appendChild(tabla);
+  let nFilas = 0;
+
+  function fijar(c){ Object.values(c).forEach(x=>{ x.classList.remove("activa"); x.classList.add("hecha"); }); }
+  function terminado(){
     const ref = document.createElement("p");
     ref.className = "enunciado-txt"; ref.style.color = "var(--menta-osc)"; ref.style.fontWeight = "800";
-    ref.textContent = `¡Eso es! ${menor} + ${bien} = ${mayor}`;
+    ref.textContent = `¡La diferencia entre ${d.a} y ${d.b} es ${est.g}! ✨`;
     z.appendChild(ref);
     Pad.onOK = null;
     ejCompletado();
-  };
-  window.__solucion = ()=>{
-    hada(`La diferencia es ${bien}: ${mayor} − ${menor} = ${bien} 💛`, 3400);
-    c.textContent = bien; c.classList.remove("activa"); c.classList.add("hecha");
-    Pad.onOK = null;
-    setTimeout(ejCompletado, 1200);
-  };
+  }
+  function filaNueva(){
+    EjState.fallosRow = 0;
+    nFilas++;
+    if(nFilas===6 && !EjState.ayudado) hada("¡Prueba a quitarlo todo de un salto! 🐸", 4000);
+    const tr = document.createElement("tr");
+    const c = {};
+    ["q","g","p"].forEach(nm=>{
+      const cc = celdaTd(); hacerEditable(cc.div, 3);
+      tr.appendChild(cc.td); c[nm] = cc.div;
+    });
+    tabla.appendChild(tr);
+    seleccionarCelda(c.q);
+    Pad.onOK = ()=>comprobar(c);
+    window.__solucion = ()=>solucionFila(c);
+  }
+  function comprobar(c){
+    const q = valorCelda(c.q), g = valorCelda(c.g), p = valorCelda(c.p);
+    if(q===null||g===null||p===null){ hada("Rellena las tres casillas de la fila 🌷"); return; }
+    const errs = [];
+    if(q<1 || q>est.p){ errs.push({c:c.q, h:`Como mucho puedes quitar ${est.p}, lo que tiene el pequeño`}); }
+    else {
+      if(g!==est.g-q) errs.push({c:c.g, h:`${est.g} menos ${q}… ¡cuenta otra vez!`});
+      if(p!==est.p-q) errs.push({c:c.p, h:`${est.p} menos ${q}… ¡casi!`});
+    }
+    if(errs.length){ marcarMal(errs.map(e=>e.c)); fallo(errs[0].h); return; }
+    est.g -= q; est.p -= q;
+    fijar(c); sfx.click();
+    if(est.p===0) terminado(); else filaNueva();
+  }
+  function solucionFila(c){
+    hada("Mira, te enseño esta fila 💛", 2600);
+    const q = est.p;
+    c.q.textContent = q; c.g.textContent = est.g-q; c.p.textContent = 0;
+    est.g -= q; est.p = 0;
+    fijar(c);
+    setTimeout(terminado, 900);
+  }
+  filaNueva();
 }
 
 /* ═══════════════ RENDER: RELOJES ═══════════════ */
