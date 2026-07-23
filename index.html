@@ -291,7 +291,7 @@ textarea{resize:vertical; min-height:64px;}
   <button class="btn btn-lila btn-grande" style="max-width:480px;" id="btn-libre">🎮 Juego libre</button>
   <button class="btn btn-oro btn-grande" style="max-width:480px;" id="btn-joyero">👑 Mi joyero real</button>
   <button class="btn btn-cielo btn-grande" style="max-width:480px;" id="btn-globos">🎈 Explotar globos <small style="font-size:.95rem;">(5 💎)</small></button>
-  <button class="btn btn-menta btn-grande" style="max-width:480px;" id="btn-mariposas">🦋 Cazar mariposas <small style="font-size:.95rem;">(5 💎)</small></button>
+  <button class="btn btn-menta btn-grande" style="max-width:480px;" id="btn-mariposas">🦋 Cazar mariposas <small style="font-size:.95rem;">(10 💎)</small></button>
 </section>
 
 <!-- ══════════ PANTALLA: MISIONES ══════════ -->
@@ -2018,8 +2018,8 @@ function moverRed(e){
 }
 function startMariposas(gratis){
   if(!gratis){
-    if(S.gemas<5){ hada("Necesitas 5 gemas 💎 ¡Haz una misión o juega libre para ganarlas!"); sfx.mal(); return; }
-    S.gemas -= 5; guardar();
+    if(S.gemas<10){ hada("Las mariposas cuestan 10 gemas 💎 ¡Son para princesas que se esfuerzan mucho! Haz misiones para ganarlas 💪"); sfx.mal(); return; }
+    S.gemas -= 10; guardar();
   }
   Mari.retorno = pantallaActual==="s-resumen" ? "s-resumen" : "s-home";
   S.premioGratis = false;
