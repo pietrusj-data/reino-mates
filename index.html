@@ -973,7 +973,7 @@ function marcarMal(celdas){
 function ejCompletado(){
   if(!Tanda) return; // salió de la tanda a mitad
   const ej = Tanda.list[Tanda.idx];
-  const g = EjState.ayudado ? 0 : 1; // 1 gema por ejercicio bien resuelto, sin más
+  const g = 1; // 1 gema por ejercicio terminado — con ayuda del hada también cuenta: lo importante es llegar
   S.gemas += g;
   if(!EjState.ayudado){
     if(ej.t==="abn"){ S.stats.abnOk++; if(ej.d.op==="doble") S.stats.dobleOk++; }
