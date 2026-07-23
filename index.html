@@ -973,7 +973,7 @@ function marcarMal(celdas){
 function ejCompletado(){
   if(!Tanda) return; // salió de la tanda a mitad
   const ej = Tanda.list[Tanda.idx];
-  const g = EjState.ayudado ? 0 : (EjState.fallosEj===0 ? 3 : EjState.fallosEj===1 ? 2 : 1);
+  const g = EjState.ayudado ? 0 : 1; // 1 gema por ejercicio bien resuelto, sin más
   S.gemas += g;
   if(!EjState.ayudado){
     if(ej.t==="abn"){ S.stats.abnOk++; if(ej.d.op==="doble") S.stats.dobleOk++; }
@@ -1766,8 +1766,6 @@ const EMOJI_TIPO = {abn:"🔮", cla:"🏰", igu:"⚖️", dif:"💎", rel:"🕐"
 function hoyISO(){ return new Date().toISOString().slice(0,10); }
 function finTanda(){
   const seg = Math.round((Date.now()-Tanda.t0)/1000);
-  const bonus = Tanda.origen==="mision" ? 10 : 5;
-  S.gemas += bonus;
   const ganadas = S.gemas - Tanda.gemas0;
   const aciertos = Tanda.res.filter(r=>!r.ayudado).length;
 
@@ -1979,10 +1977,7 @@ function endGlobos(abandonado){
   Globos.timer = Globos.spawner = null;
   S.stats.globos += Globos.n;
   if(!abandonado){
-    const premio = Math.max(1, Math.ceil(Globos.n/3));
-    S.gemas += premio;
-    S.stats.gemasTotal = (S.stats.gemasTotal||0) + premio;
-    premioGrande(`🎈 ¡${Globos.n} globos! +${premio} 💎`, `¡${Globos.n} globos! ¡Qué puntería!`);
+    premioGrande(`🎈 ¡${Globos.n} globos!`, `¡${Globos.n} globos! ¡Qué puntería!`);
     sfx.fanfarria(); confetiCentro();
   }
   guardar();
@@ -2095,10 +2090,7 @@ function endMariposas(abandonado){
   clearInterval(Mari.timer); Mari.timer = null;
   S.stats.mariposas = (S.stats.mariposas||0) + Mari.n;
   if(!abandonado){
-    const premio = Math.max(1, Math.ceil(Mari.n/2));
-    S.gemas += premio;
-    S.stats.gemasTotal = (S.stats.gemasTotal||0) + premio;
-    premioGrande(`🦋 ¡${Mari.n} mariposas! +${premio} 💎`, `¡${Mari.n} mariposas! ¡Qué puntería con la red!`);
+    premioGrande(`🦋 ¡${Mari.n} mariposas!`, `¡${Mari.n} mariposas! ¡Qué puntería con la red!`);
     sfx.fanfarria(); confetiCentro();
   }
   guardar(); actualizarGemas();
@@ -2344,6 +2336,12 @@ document.addEventListener("pointerdown", function una(){ audio(); document.remov
 if(window.speechSynthesis) speechSynthesis.getVoices();
 
 /* INIT */
+/* economía v2 (jul-2026): borrón y cuenta nueva — las gemas infladas de la economía vieja se resetean una vez */
+if(!LS.get("econV2", false)){
+  S.gemas = 0;
+  LS.set("econV2", true);
+  guardar();
+}
 pintarSonido();
 actualizarGemas();
 flushCola();
