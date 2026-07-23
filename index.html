@@ -512,7 +512,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem("rm_"+k, JSON.stringify(v)); }catch(e){} }
 };
 const S = {
-  nombre : LS.get("nombre", "Paula"),
+  nombre : LS.get("nombreCustom", "") || "Paula", // ignora el nombre viejo de las pruebas
   gemas  : LS.get("gemas", 0),
   sonido : LS.get("sonido", true),
   voz    : LS.get("voz", true),
@@ -524,7 +524,7 @@ const S = {
   premioGratis: false                      // partida de globos gratis tras misión
 };
 function guardar(){
-  LS.set("nombre",S.nombre); LS.set("gemas",S.gemas); LS.set("sonido",S.sonido); LS.set("voz",S.voz);
+  LS.set("nombreCustom",S.nombre); LS.set("gemas",S.gemas); LS.set("sonido",S.sonido); LS.set("voz",S.voz);
   LS.set("pin",S.pin); LS.set("insig",S.insig); LS.set("stats",S.stats); LS.set("cola",S.cola);
   LS.set("hechasLocal",S.hechasLocal);
 }
