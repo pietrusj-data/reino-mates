@@ -272,6 +272,7 @@ textarea{resize:vertical; min-height:64px;}
   <div style="font-size:3.6rem;">🏰</div>
   <h1 id="saludo">¡Hola, princesa!</h1>
   <p class="sub" id="frase-dia">Hoy es un día perfecto para las mates ✨</p>
+  <p class="sub" id="hoy-info" style="font-weight:800; color:var(--lila-osc);"></p>
   <div class="pos-rel w100" style="max-width:480px;">
     <button class="btn btn-rosa btn-grande" id="btn-misiones">📜 Misiones de papá</button>
     <span class="badge oculto" id="badge-misiones">0</span>
@@ -518,6 +519,7 @@ const S = {
   voz    : LS.get("voz", true),
   pin    : LS.get("pin", null),
   insig  : LS.get("insig", []),            // claves de insignias ganadas
+  hoy    : LS.get("hoy", {fecha:"", gemas:0, ej:0}),  // lo conseguido hoy
   stats  : LS.get("stats", {misiones:0, perfectas:0, abnOk:0, claOk:0, iguOk:0, difOk:0, globos:0, dias:[], nivel3:0, dobleOk:0}),
   cola   : LS.get("cola", []),             // envíos pendientes si no hay internet
   hechasLocal: LS.get("hechasLocal", []),  // ids de misiones ya hechas (por si falla el PATCH)
@@ -526,7 +528,11 @@ const S = {
 function guardar(){
   LS.set("nombreCustom",S.nombre); LS.set("gemas",S.gemas); LS.set("sonido",S.sonido); LS.set("voz",S.voz);
   LS.set("pin",S.pin); LS.set("insig",S.insig); LS.set("stats",S.stats); LS.set("cola",S.cola);
-  LS.set("hechasLocal",S.hechasLocal);
+  LS.set("hechasLocal",S.hechasLocal); LS.set("hoy",S.hoy);
+}
+function tocaHoy(){
+  const f = new Date().toISOString().slice(0,10);
+  if(S.hoy.fecha !== f){ S.hoy = {fecha:f, gemas:0, ej:0}; guardar(); }
 }
 function $(id){ return document.getElementById(id); }
 function actualizarGemas(){
@@ -975,6 +981,7 @@ function ejCompletado(){
   const ej = Tanda.list[Tanda.idx];
   const g = 1; // 1 gema por ejercicio terminado — con ayuda del hada también cuenta: lo importante es llegar
   S.gemas += g;
+  tocaHoy(); S.hoy.gemas += g; S.hoy.ej++;
   if(!EjState.ayudado){
     if(ej.t==="abn"){ S.stats.abnOk++; if(ej.d.op==="doble") S.stats.dobleOk++; }
     if(ej.t==="cla") S.stats.claOk++;
@@ -2199,7 +2206,7 @@ async function cargarResultados(){
   cont.innerHTML = "<p class='sub'>Cargando…</p>";
   const [rm, rr] = await Promise.all([
     sbSelect(T_MISIONES, "select=*&order=created_at.desc&limit=25"),
-    sbSelect(T_RESULT, "select=*&order=created_at.desc&limit=40")
+    sbSelect(T_RESULT, "select=*&order=created_at.desc&limit=100")
   ]);
   if(!rm.ok){ cont.innerHTML = "<p class='sub'>📡 Sin conexión con Supabase.</p>"; return; }
   const misiones = rm.data||[], resultados = rr.ok ? (rr.data||[]) : [];
@@ -2212,6 +2219,29 @@ async function cargarResultados(){
   ].sort((a,b)=>b.fecha.localeCompare(a.fecha));
   if(!items.length){ cont.innerHTML = "<p class='sub'>Aún no hay nada. ¡Envía la primera misión!</p>"; return; }
   cont.innerHTML = "";
+  // lo conseguido cada día (agregado de todos los resultados)
+  const porDia = {};
+  resultados.forEach(r=>{
+    const d = new Date(r.created_at);
+    const clave = d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+    if(!porDia[clave]) porDia[clave] = {clave, ej:0, moneda:0, seg:0};
+    porDia[clave].ej += (r.detalle && r.detalle.ejercicios) ? r.detalle.ejercicios.length : (r.aciertos||0);
+    porDia[clave].moneda += r.gemas||0;
+    porDia[clave].seg += r.tiempo_seg||0;
+  });
+  const dias = Object.values(porDia).sort((a,b)=>b.clave.localeCompare(a.clave)).slice(0,14);
+  if(dias.length){
+    const SEM = ["dom","lun","mar","mié","jue","vie","sáb"];
+    const bloque = document.createElement("div");
+    bloque.style.cssText = "background:var(--lila-suave); border-radius:12px; padding:10px 14px; margin-bottom:12px;";
+    bloque.innerHTML = "<b>📅 Lo conseguido cada día</b>" + dias.map(x=>{
+      const dt = new Date(x.clave+"T12:00:00");
+      return `<div style="display:flex; gap:10px; padding:3px 0; font-size:.95rem; flex-wrap:wrap;">
+        <span style="min-width:76px; font-weight:800;">${SEM[dt.getDay()]} ${dt.getDate()}/${dt.getMonth()+1}</span>
+        <span>${x.ej} ejercicios</span><span>· ${x.moneda} 💎</span><span>· ${Math.max(1,Math.round(x.seg/60))} min</span></div>`;
+    }).join("");
+    cont.appendChild(bloque);
+  }
   items.forEach(it=>{
     const card = document.createElement("div");
     card.className = "res-card";
@@ -2254,6 +2284,10 @@ const FRASES_DIA = ["Hoy es un día perfecto para las mates ✨","El castillo te
 function pintarHome(){
   $("saludo").textContent = "¡Hola, "+(S.nombre||"princesa")+"!";
   $("frase-dia").textContent = FRASES_DIA[new Date().getDate() % FRASES_DIA.length];
+  tocaHoy();
+  $("hoy-info").textContent = S.hoy.ej > 0
+    ? `Hoy llevas ${S.hoy.gemas} 💎 de ${S.hoy.ej} ejercicio${S.hoy.ej===1?"":"s"} ¡sigue así!`
+    : "";
   pintarBadge();
 }
 function pintarSonido(){ $("btn-sonido").textContent = S.sonido ? "🔊" : "🔇"; }
