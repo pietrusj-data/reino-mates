@@ -179,6 +179,9 @@ h2{font-size:1.5rem; margin:.2em 0; text-align:center; font-weight:800;}
 .globo{position:absolute; font-size:4rem; cursor:pointer; user-select:none; will-change:transform;
   transition:none; line-height:1;}
 .globo span{display:inline-block;}
+.mariposa{position:absolute; cursor:pointer; user-select:none; will-change:transform; line-height:1;}
+.mariposa span{display:inline-block; animation:aleteo .5s ease-in-out infinite;}
+@keyframes aleteo{0%,100%{transform:scaleX(1)}50%{transform:scaleX(.55)}}
 
 /* ZONA PAPÁ */
 .papa .tarjeta{border-radius:16px;}
@@ -288,6 +291,7 @@ textarea{resize:vertical; min-height:64px;}
   <button class="btn btn-lila btn-grande" style="max-width:480px;" id="btn-libre">🎮 Juego libre</button>
   <button class="btn btn-oro btn-grande" style="max-width:480px;" id="btn-joyero">👑 Mi joyero real</button>
   <button class="btn btn-cielo btn-grande" style="max-width:480px;" id="btn-globos">🎈 Explotar globos <small style="font-size:.95rem;">(5 💎)</small></button>
+  <button class="btn btn-menta btn-grande" style="max-width:480px;" id="btn-mariposas">🦋 Cazar mariposas <small style="font-size:.95rem;">(5 💎)</small></button>
 </section>
 
 <!-- ══════════ PANTALLA: MISIONES ══════════ -->
@@ -363,6 +367,7 @@ textarea{resize:vertical; min-height:64px;}
   </div>
   <div id="resumen-insignias" class="fila"></div>
   <button class="btn btn-cielo btn-grande" style="max-width:460px;" id="btn-premio-globos">🎈 ¡Premio: explotar globos!</button>
+  <button class="btn btn-menta btn-grande" style="max-width:460px;" id="btn-premio-mariposas">🦋 ¡Premio: cazar mariposas!</button>
   <button class="btn btn-lila" id="btn-resumen-volver">🏰 Volver al castillo</button>
 </section>
 
@@ -375,6 +380,17 @@ textarea{resize:vertical; min-height:64px;}
   </div>
   <h2 id="globos-titulo">¡Explota todos los que puedas!</h2>
   <div id="globos-zona"></div>
+</section>
+
+<!-- ══════════ PANTALLA: MARIPOSAS ══════════ -->
+<section class="screen" id="s-mariposas">
+  <div class="topbar">
+    <button class="icono-btn" id="btn-salir-mariposas">✖️</button>
+    <span class="chip">⏱️ <span class="num" id="mari-tiempo">20</span></span>
+    <span class="chip">🦋 <span class="num" id="mari-cont">0</span></span>
+  </div>
+  <h2>¡Cázalas con la red!</h2>
+  <div id="mariposas-zona" style="position:relative; width:100%; height:62vh; background:linear-gradient(180deg,#e6fbf1,#fdf3ff); border-radius:26px; overflow:hidden; box-shadow:inset 0 4px 18px rgba(0,0,0,.08);"></div>
 </section>
 
 <!-- ══════════ PANTALLA: JOYERO ══════════ -->
@@ -1804,6 +1820,7 @@ function finTanda(){
   $("resumen-insignias").innerHTML = nuevas.map(ins=>
     `<div class="insig nueva"><div class="em">${ins.e}</div><div class="nom">¡Insignia nueva!<br>${ins.nombre}</div></div>`).join("");
   $("btn-premio-globos").classList.toggle("oculto", !S.premioGratis);
+  $("btn-premio-mariposas").classList.toggle("oculto", !S.premioGratis);
   go("s-resumen");
   sfx.fanfarria();
   const decir = Tanda.fallosTotales===0 ? "¡Perfecta! Eres increíble, "+(S.nombre||"princesa") : "¡Muy bien! Misión cumplida";
@@ -1823,6 +1840,7 @@ const INSIGNIAS = [
   {k:"doble-1",        nombre:"Primera Doble Suma",     e:"🌟", desc:"Resuelve tu primera doble suma",      check:s=>s.dobleOk>=1},
   {k:"gemas-100",      nombre:"Tesoro Real",            e:"💰", desc:"Gana 100 gemas en total",             check:s=>(s.gemasTotal||0)>=100},
   {k:"globos-50",      nombre:"Reina de los Globos",    e:"🎈", desc:"Explota 50 globos",                   check:s=>s.globos>=50},
+  {k:"mariposas-30",   nombre:"Cazamariposas",          e:"🦋", desc:"Caza 30 mariposas con la red",        check:s=>(s.mariposas||0)>=30},
   {k:"reloj-10",       nombre:"Señora del Tiempo",      e:"🕐", desc:"Resuelve 10 relojes",                 check:s=>(s.relOk||0)>=10},
   {k:"pesos-10",       nombre:"Maestra de la Balanza",  e:"🧺", desc:"Resuelve 10 pesos",                   check:s=>(s.pesOk||0)>=10},
   {k:"dias-3",         nombre:"Tres Días de Mates",     e:"🌈", desc:"Juega 3 días distintos",              check:s=>s.dias.length>=3},
@@ -1918,6 +1936,7 @@ function startGlobos(gratis){
   Globos.retorno = pantallaActual==="s-resumen" ? "s-resumen" : "s-home";
   S.premioGratis = false;
   $("btn-premio-globos").classList.add("oculto");
+  $("btn-premio-mariposas").classList.add("oculto");
   go("s-globos");
   const zona = $("globos-zona");
   zona.innerHTML = ""; Globos.items = []; Globos.n = 0; Globos.t = 20;
@@ -1981,6 +2000,123 @@ function endGlobos(abandonado){
     if(nuevas.length) hada("¡Insignia nueva en tu joyero! 👑✨", 4000);
   }, abandonado ? 0 : 1600);
 }
+
+/* ═══════════════ CAZAMARIPOSAS 🦋 (con red) ═══════════════ */
+const Mari = {n:0, t:20, timer:null, rafRun:false, items:[], retorno:"s-home", activo:false, nx:-999, ny:-999, tPrev:0};
+const RED_SVG = `<svg viewBox="0 0 90 135" width="96" height="144" style="display:block;">
+  <line x1="45" y1="52" x2="45" y2="128" stroke="#c98a4b" stroke-width="9" stroke-linecap="round"/>
+  <ellipse cx="45" cy="30" rx="33" ry="25" fill="rgba(255,255,255,.28)" stroke="#8b6fe0" stroke-width="6"/>
+  <path d="M18,22 Q45,40 72,22 M18,38 Q45,56 72,38 M32,10 Q40,30 32,50 M58,10 Q50,30 58,50" stroke="#b9a6ee" stroke-width="2.5" fill="none"/>
+</svg>`;
+function moverRed(e){
+  const zona = $("mariposas-zona"), red = $("red-mari");
+  if(!red) return;
+  const r = zona.getBoundingClientRect();
+  Mari.nx = e.clientX - r.left; Mari.ny = e.clientY - r.top;
+  red.style.left = (Mari.nx-48)+"px"; red.style.top = (Mari.ny-32)+"px";
+  red.style.opacity = "1";
+}
+function startMariposas(gratis){
+  if(!gratis){
+    if(S.gemas<5){ hada("Necesitas 5 gemas 💎 ¡Haz una misión o juega libre para ganarlas!"); sfx.mal(); return; }
+    S.gemas -= 5; guardar();
+  }
+  Mari.retorno = pantallaActual==="s-resumen" ? "s-resumen" : "s-home";
+  S.premioGratis = false;
+  $("btn-premio-globos").classList.add("oculto");
+  $("btn-premio-mariposas").classList.add("oculto");
+  go("s-mariposas");
+  const zona = $("mariposas-zona");
+  zona.innerHTML = "";
+  const red = document.createElement("div");
+  red.id = "red-mari"; red.innerHTML = RED_SVG;
+  red.style.cssText = "position:absolute; pointer-events:none; z-index:5; opacity:0; transform-origin:45px 30px;";
+  zona.appendChild(red);
+  Mari.items = []; Mari.n = 0; Mari.t = 20; Mari.activo = false; Mari.nx = -999; Mari.ny = -999;
+  $("mari-cont").textContent = "0"; $("mari-tiempo").textContent = "20";
+  hada("¡Arrastra el dedo con la red para cazarlas! 🦋", 3600);
+  for(let i=0;i<5;i++) crearMariposa(zona);
+  if(!zona.dataset.cableada){
+    zona.dataset.cableada = "1";
+    zona.addEventListener("pointerdown", e=>{
+      e.preventDefault(); Mari.activo = true; moverRed(e);
+      const red2 = $("red-mari");
+      if(red2 && red2.animate) red2.animate(
+        [{transform:"rotate(-20deg)"},{transform:"rotate(12deg)"},{transform:"rotate(0deg)"}], {duration:240});
+    });
+    zona.addEventListener("pointermove", e=>{ if(Mari.activo){ e.preventDefault(); moverRed(e); } });
+  }
+  Mari.timer = setInterval(()=>{
+    Mari.t--; $("mari-tiempo").textContent = Mari.t;
+    if(Mari.t<=0) endMariposas(false);
+  }, 1000);
+  Mari.tPrev = 0;
+  if(!Mari.rafRun){ Mari.rafRun = true; requestAnimationFrame(mariTick); }
+}
+function crearMariposa(zona){
+  const m = document.createElement("div");
+  m.className = "mariposa";
+  m.style.pointerEvents = "none";
+  m.innerHTML = `<span style="filter:hue-rotate(${ri(0,340)}deg); font-size:${ri(26,40)/10}rem;">🦋</span>`;
+  const st = {el:m,
+    x: ri(20, Math.max(60, zona.clientWidth-60)),
+    y: ri(20, Math.max(60, zona.clientHeight-70)),
+    ang: Math.random()*6.28, v: ri(60,125), wob: 1.5+Math.random()*2.5, fase: Math.random()*6.28};
+  m.style.transform = `translate(${st.x}px, ${st.y}px)`;
+  zona.appendChild(m);
+  Mari.items.push(st);
+}
+function mariTick(ts){
+  if(pantallaActual!=="s-mariposas"){ Mari.rafRun = false; return; }
+  const dt = Mari.tPrev ? Math.min((ts-Mari.tPrev)/1000, .05) : .016;
+  Mari.tPrev = ts;
+  const zona = $("mariposas-zona");
+  const W = zona.clientWidth, H = zona.clientHeight;
+  Mari.items.forEach(st=>{
+    st.ang += Math.sin(ts/1000*st.wob + st.fase)*2.2*dt;
+    st.x += Math.cos(st.ang)*st.v*dt;
+    st.y += Math.sin(st.ang)*st.v*dt*0.75;
+    if(st.x<6){ st.x=6; st.ang = Math.PI-st.ang; }
+    if(st.x>W-48){ st.x=W-48; st.ang = Math.PI-st.ang; }
+    if(st.y<6){ st.y=6; st.ang = -st.ang; }
+    if(st.y>H-52){ st.y=H-52; st.ang = -st.ang; }
+    st.el.style.transform = `translate(${st.x}px, ${st.y}px)`;
+  });
+  if(Mari.activo && Mari.timer){
+    const rz = zona.getBoundingClientRect();
+    Mari.items = Mari.items.filter(st=>{
+      const cx = st.x+22, cy = st.y+20;
+      if(Math.abs(cx-Mari.nx)<48 && Math.abs(cy-Mari.ny)<44){
+        Mari.n++; $("mari-cont").textContent = Mari.n;
+        sfx.pop(); sfx.gema();
+        confeti(rz.left+cx, rz.top+cy, 14);
+        st.el.innerHTML = "✨"; setTimeout(()=>st.el.remove(), 220);
+        setTimeout(()=>{ if(pantallaActual==="s-mariposas" && Mari.timer) crearMariposa(zona); }, 520);
+        return false;
+      }
+      return true;
+    });
+  }
+  requestAnimationFrame(mariTick);
+}
+function endMariposas(abandonado){
+  clearInterval(Mari.timer); Mari.timer = null;
+  S.stats.mariposas = (S.stats.mariposas||0) + Mari.n;
+  if(!abandonado){
+    const premio = Math.max(1, Math.ceil(Mari.n/2));
+    S.gemas += premio;
+    S.stats.gemasTotal = (S.stats.gemasTotal||0) + premio;
+    premioGrande(`🦋 ¡${Mari.n} mariposas! +${premio} 💎`, `¡${Mari.n} mariposas! ¡Qué puntería con la red!`);
+    sfx.fanfarria(); confetiCentro();
+  }
+  guardar(); actualizarGemas();
+  const nuevas = chequearInsignias();
+  setTimeout(()=>{
+    go(Mari.retorno==="s-resumen" ? "s-resumen" : "s-home");
+    if(nuevas.length) hada("¡Insignia nueva en tu joyero! 👑✨", 4000);
+  }, abandonado ? 0 : 1600);
+}
+addEventListener("pointerup", ()=>Mari.activo = false);
 
 /* ═══════════════ ZONA PAPÁ ═══════════════ */
 const Papa = {pinBuf:"", pinModo:"entrar", pinTemp:"", nivel:1, tipos:new Set(["abn","igu","dif"]), preview:null};
@@ -2158,6 +2294,9 @@ document.querySelectorAll(".btn-volver").forEach(b=>b.addEventListener("click", 
 $("btn-resumen-volver").addEventListener("click", ()=>go("s-home"));
 $("btn-premio-globos").addEventListener("click", ()=>startGlobos(true));
 $("btn-salir-globos").addEventListener("click", ()=>endGlobos(true));
+$("btn-mariposas").addEventListener("click", ()=>startMariposas(false));
+$("btn-premio-mariposas").addEventListener("click", ()=>startMariposas(true));
+$("btn-salir-mariposas").addEventListener("click", ()=>endMariposas(true));
 $("btn-salir-juego").addEventListener("click", ()=>{
   if(salirArmado){ salirArmado = false; Tanda = null; go("s-home"); hada("¡Hasta ahora! 👋"); }
   else { salirArmado = true; hada("¿Seguro? Toca ✖️ otra vez para salir", 2500); setTimeout(()=>salirArmado=false, 2600); }
