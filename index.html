@@ -260,18 +260,6 @@ textarea{resize:vertical; min-height:64px;}
 <span class="deco" style="bottom:8%; right:9%; animation-delay:.6s;">⭐</span>
 <span class="deco" style="top:45%; right:3%; animation-delay:3s;">🧚‍♀️</span>
 
-<!-- ══════════ PANTALLA: NOMBRE (primera vez) ══════════ -->
-<section class="screen" id="s-nombre">
-  <div style="font-size:4.5rem; margin-top:8vh;">👑</div>
-  <h1>¡Bienvenida al<br>Reino de las Mates!</h1>
-  <p class="sub">¿Cómo te llamas, princesa?</p>
-  <div class="tarjeta" style="max-width:420px;">
-    <input type="text" id="in-nombre" maxlength="20" placeholder="Escribe tu nombre…"
-      style="font-size:1.5rem; text-align:center;" autocomplete="off">
-    <button class="btn btn-rosa btn-grande" style="margin-top:14px;" id="btn-entrar">¡Entrar al castillo! 🏰</button>
-  </div>
-</section>
-
 <!-- ══════════ PANTALLA: HOME ══════════ -->
 <section class="screen" id="s-home">
   <div class="topbar">
@@ -482,6 +470,10 @@ textarea{resize:vertical; min-height:64px;}
 
   <div id="tab-ajustes" class="tarjeta oculto">
     <div class="form-linea">
+      <label>Nombre de la niña</label>
+      <input type="text" id="ajuste-nombre" maxlength="20">
+    </div>
+    <div class="form-linea">
       <label>Cambiar PIN</label>
       <button class="btn btn-mini btn-lila" id="btn-cambiar-pin">Cambiar PIN</button>
     </div>
@@ -520,7 +512,7 @@ const LS = {
   set(k, v){ try{ localStorage.setItem("rm_"+k, JSON.stringify(v)); }catch(e){} }
 };
 const S = {
-  nombre : LS.get("nombre", ""),
+  nombre : LS.get("nombre", "Paula"),
   gemas  : LS.get("gemas", 0),
   sonido : LS.get("sonido", true),
   voz    : LS.get("voz", true),
@@ -2157,6 +2149,7 @@ $("pad-pin").addEventListener("pointerdown", e=>{
 async function entrarPapa(){
   go("s-papa");
   $("papa-envio-ok").classList.add("oculto");
+  $("ajuste-nombre").value = S.nombre;
   const ping = await sbSelect(T_MISIONES, "select=id&limit=1");
   const c = $("papa-conexion");
   c.textContent = ping.ok ? "🟢 conectado" : "🔴 sin conexión";
@@ -2274,15 +2267,6 @@ function pintarHome(){
 function pintarSonido(){ $("btn-sonido").textContent = S.sonido ? "🔊" : "🔇"; }
 
 /* botones globales */
-$("btn-entrar").addEventListener("click", ()=>{
-  const n = $("in-nombre").value.trim();
-  if(!n){ $("in-nombre").focus(); return; }
-  S.nombre = n.charAt(0).toUpperCase()+n.slice(1);
-  guardar();
-  go("s-home");
-  confetiCentro();
-  hablar("¡Bienvenida al Reino de las Mates, "+S.nombre+"!");
-});
 $("btn-misiones").addEventListener("click", ()=>go("s-misiones"));
 $("btn-libre").addEventListener("click", ()=>go("s-libre"));
 $("btn-joyero").addEventListener("click", ()=>go("s-joyero"));
@@ -2339,6 +2323,10 @@ $("btn-regenerar").addEventListener("click", generarPreview);
 $("btn-enviar").addEventListener("click", enviarMision);
 $("btn-res-refrescar").addEventListener("click", cargarResultados);
 $("btn-cambiar-pin").addEventListener("click", ()=>{ S.pin = null; guardar(); abrirPin(); });
+$("ajuste-nombre").addEventListener("change", ()=>{
+  const n = $("ajuste-nombre").value.trim();
+  if(n){ S.nombre = n.charAt(0).toUpperCase()+n.slice(1); guardar(); pintarHome(); }
+});
 $("btn-borrar-hechas").addEventListener("click", async ()=>{
   if(!confirm("¿Borrar todas las misiones ya hechas? (los resultados se conservan)")) return;
   await sbDelete(T_MISIONES, "estado=eq.hecha");
@@ -2359,7 +2347,7 @@ if(window.speechSynthesis) speechSynthesis.getVoices();
 pintarSonido();
 actualizarGemas();
 flushCola();
-if(S.nombre){ go("s-home"); } else { go("s-nombre"); }
+go("s-home");
 refrescarMisiones(true);
 </script>
 </body>
